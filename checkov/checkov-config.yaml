@@ -1,0 +1,5 @@
+skip_checks:
+  - CKV_AWS_20   # S3 bucket should have versioning enabled
+  - CKV_AWS_23   # S3 bucket should have access logging
+quiet: true
+download_external_modules: true

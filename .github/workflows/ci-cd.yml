@@ -1,0 +1,64 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-deploy:
+    runs-on: [self-hosted, linux]
+
+    steps:
+    - name: ‚úÖ Checkout Code
+      uses: actions/checkout@v4
+
+    - name: ÔøΩÔøΩÔ∏è Trivy Scan (Source Code)
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: "fs"
+        scan-ref: "./app"
+
+    - name: Ì¥ç SonarQube Scan
+      uses: SonarSource/sonarqube-scan-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+    - name: Ì∞≥ Build Docker Image
+      run: |
+        cd app
+        docker build -t ${{ secrets.ECR_REPO }}:latest .
+
+    - name: Ìª°Ô∏è Trivy Scan (Docker Image)
+      run: trivy image ${{ secrets.ECR_REPO }}:latest
+
+    - name: Ì≥¶ Push to Amazon ECR
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_REPO }}
+        docker push ${{ secrets.ECR_REPO }}:latest
+
+    - name: ‚öôÔ∏è Terraform Init & Apply
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        cd terraform
+        terraform init
+        terraform apply -auto-approve
+
+    - name: ‚úÖ Checkov Scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: terraform
+        config_file: checkov/checkov-config.yaml
+
+    - name: Ì∫Ä Deploy to EKS
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        aws eks update-kubeconfig --region us-east-1 --name my-cluster
+        kubectl apply -f k8s/

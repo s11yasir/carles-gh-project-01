@@ -1,0 +1,14 @@
+
+# === Terraform ===
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+*.auto.tfvars
+crash.log
+override.tf
+override.tf.json
+.terraformrc
+terraform.rc
